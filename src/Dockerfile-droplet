@@ -1,0 +1,37 @@
+# Build our custom image for the remote server / droplet
+# We run this via docker-compose-droplet.yml
+
+# Start with the official Lucee Docker image on Docker Hub (5.3 as at August 2022)
+# This contains Tomcat 9.0 and OpenJDK 11
+# See: https://hub.docker.com/r/lucee/lucee
+# where the details about folder locations and its own Docker file are found.
+FROM lucee/lucee:latest
+
+# You can set memory like this if you need to:
+# ENV LUCEE_JAVA_OPTS="-Xms64m -Xmx512m" # <= is the default
+# e.g.
+# ENV LUCEE_JAVA_OPTS "-Xms1024m -Xmx1024m"
+
+# Lucee Admin pages
+# Set this to false so the Lucee Admin pages will not be available.
+# See also application.cfc where we can read this value if we need it.
+ENV LUCEE_ADMIN_ENABLED false
+
+# A simple example of using your own environment variables.
+# Sets the path to where the lucee-server folder is
+ENV LUCEE_SERVER /opt/lucee/server/lucee-server
+
+# Copy your local workspace saved server settings to configure the server and web contexts.
+# lucee-server.xml and lucee-web.xml.cfm hold the Lucee Admin config as used by the two Admin contexts.
+# See the Development.md notes.
+COPY LuceeSettings/lucee-server.xml "${LUCEE_SERVER}/context/lucee-server.xml"
+COPY LuceeSettings/lucee-web.xml.cfm /opt/lucee/web/lucee-web.xml.cfm
+
+# FYI: Jar files, if you have any to add. e.g.
+# COPY www/jars/jsoup-1.9.2.jar "${LUCEE_SERVER}/bundles/jsoup-1.9.2.jar"
+
+# Your CFML code.
+# We copy the folder into the container so it is inside the container.
+# i.e copy the local 'www' folder to where Lucee is expecting to find it
+# inside the container. i.e. '/var/www'
+COPY www /var/www

@@ -1,0 +1,70 @@
+# Compose file for local development
+
+# To build, open a terminal in VSCode:
+# cd src
+# docker-compose -f docker-compose-local.yml up --build
+
+version: "3"
+
+services:
+  # Name this container: 'db'
+  # We also use this in Lucee when creating the DataSource
+  db:
+    # There seems to be an issue with Lucee and Mysql 8, so we use 5.7 here.
+    # https://dev.lucee.org/t/debin9-mysql8-no-connect-with-lucee-datasource/4442
+    image: mysql:5.7
+
+    # Persist our database
+    volumes:
+      - ./my-docker-volumes/mysql-data:/var/lib/mysql
+
+    restart: always
+
+    environment:
+      # See the .env file
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+
+      # Creates the database on container start if it doesnt exist, using this defined name.
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+
+      # See the notes in the Development.md regarding ports.
+    ports:
+      - '${CF_DB_PORT}:3306'
+
+  lucee:
+    depends_on:
+      - db
+
+    # Build using ./Dockerfile-local
+    build:
+      context: .
+      dockerfile: Dockerfile-local
+
+    volumes:
+      # For local development:
+      # Mount the web root so as you make changes to your CFML on the host (your development machine)
+      # the container is updated without needing to rebuild it.
+      - ./www:/var/www
+
+      # Mount the password file so when you start the new container Lucee knows the server password.
+      - ./password.txt:/opt/lucee/server/lucee-server/context/password.txt
+
+      # Map your admin settings so they are saved as you change them in Lucee Admin.
+      # Rebuilding the image will then use those updated settings.
+      # To start with a clean install,
+      # empty (but dont delete) ./LuceeSettings/lucee-server.xml and ./LuceeSettings/lucee-web.xml.cfm files.
+      - ./LuceeSettings/lucee-server.xml:/opt/lucee/server/lucee-server/context/lucee-server.xml
+      - ./LuceeSettings/lucee-web.xml.cfm:/opt/lucee/web/lucee-web.xml.cfm
+
+    restart: always
+
+    environment:
+      MYSQL_ROOT_PASSWORD : ${MYSQL_PASSWORD}
+
+      # NOTE: the host is 'db' not 'localhost'
+      # See also the DataSource definition in application.cfc
+      MYSQL_HOST : db
+
+    ports:
+    # Tomcat inside the Lucee container listens on port 8888
+    - "${HOST_PORT}:8888"

@@ -1,0 +1,61 @@
+# Compose file for the droplet
+
+# When this file is in the development machine:
+#   open a terminal in VSCode:
+#   cd src
+#   docker-compose -f docker-compose-droplet.yml up --build
+
+# When this file is in the remote Droplet machine:
+#   open a terminal in VSCode at the /root/ folder:
+#   cd lucee-howto
+#   docker-compose -f docker-compose-droplet.yml up
+
+version: "3"
+
+services:
+  db:
+    image: mysql:5.7
+
+    # Persist our database
+    volumes:
+      - ./my-docker-volumes/mysql-data:/var/lib/mysql
+
+    restart: always
+
+    environment:
+      # See the .env file
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+
+      # Creates the database, using this defined name, on container start if it doesnt exist
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+
+    ports:
+      - '${CF_DB_PORT}:3306'
+
+  lucee:
+    depends_on:
+      - db
+
+    # When you copy this file to the remote Droplet
+    # you will remove this build section.
+    # The explanation is in Deployment.md
+    build:
+      context: .
+      dockerfile: Dockerfile-droplet
+
+    image: ${DOCKERHUB_ACCOUNTNAME}/lucee-howto:latest
+
+    restart: always
+
+    environment:
+      MYSQL_ROOT_PASSWORD : ${MYSQL_PASSWORD}
+
+      # NOTE: the host is 'db' not 'localhost'
+      # See also the DataSource definition in application.cfc
+      MYSQL_HOST : db
+
+    ports:
+    # The droplet host VM Nginx config passes the incoming SSL traffic to port 8890
+    # as set in the .env file,
+    # and we then map that to Tomcat inside Lucee which is listening on port 8888
+    - "${HOST_PORT}:8888"
